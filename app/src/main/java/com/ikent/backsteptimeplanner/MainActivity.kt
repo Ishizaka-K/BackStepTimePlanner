@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -117,21 +118,14 @@ fun PlannerScreen() {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(horizontal = 16.dp)
         ) {
-            Button(onClick = { meetDate = meetDate.minusDays(1) }) { Text("前日") }
-            Text(
-                meetDate.format(DateTimeFormatter.ofPattern("yyyy/MM/dd (E)")),
-                modifier = Modifier.weight(1f)
-            )
-            Button(onClick = { meetDate = meetDate.plusDays(1) }) { Text("翌日") }
+            DateRowWithPicker(date = meetDate, onChange = { meetDate = it})
         }
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(horizontal = 16.dp)
         ) {
-            Button(onClick = { meetTime = meetTime.minusMinutes(5) }) { Text("-5分") }
-            Text(meetTime.format(fmtTime), modifier = Modifier.weight(1f))
-            Button(onClick = { meetTime = meetTime.plusMinutes(5) }) { Text("+5分") }
+            TimeRowWithPicker(time = meetTime, onChange = { meetTime = it })
         }
 
         // ★ 崩れ対策：FlowRow で折り返し
@@ -231,6 +225,180 @@ fun PrepBufferTravelRow(
         NumberField(
             value = travelMin, onChange = onTravel, label = "所要(分)",
             modifier = Modifier.widthIn(min = 120.dp).weight(1f, fill = false)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateField(
+    date: LocalDate,
+    onChange: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val zone = ZoneId.systemDefault()
+    val initMillis = date.atStartOfDay(zone).toInstant().toEpochMilli()
+    var open by remember { mutableStateOf(false) }
+    val state = rememberDatePickerState(initialSelectedDateMillis = initMillis)
+
+    OutlinedTextField(
+        value = date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd (E)")),
+        onValueChange = {},
+        label = { Text("集合日") },
+        readOnly = true,
+        modifier = modifier.clickable { open = true }
+    )
+
+    if (open) {
+        DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { millis ->
+                        val picked = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+                        onChange(picked)
+                    }
+                    open = false
+                }) { Text("決定") }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text("キャンセル") } }
+        ) {
+            DatePicker(state = state)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimeField(
+    time: LocalTime,
+    onChange: (LocalTime) -> Unit,
+    modifier: Modifier = Modifier,
+    is24Hour: Boolean = true
+) {
+    var open by remember { mutableStateOf(false) }
+    val tpState = rememberTimePickerState(
+        initialHour = time.hour,
+        initialMinute = time.minute,
+        is24Hour = is24Hour
+    )
+
+    OutlinedTextField(
+        value = time.format(DateTimeFormatter.ofPattern(if (is24Hour) "HH:mm" else "hh:mm a")),
+        onValueChange = {},
+        label = { Text("集合時刻") },
+        readOnly = true,
+        modifier = modifier.clickable { open = true }
+    )
+
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    onChange(LocalTime.of(tpState.hour, tpState.minute))
+                    open = false
+                }) { Text("決定") }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text("キャンセル") } },
+            text = {
+                // Material3 の TimePicker
+                TimePicker(state = tpState)
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateRowWithPicker(
+    date: LocalDate,
+    onChange: (LocalDate) -> Unit
+) {
+    var open by remember { mutableStateOf(false) }
+    val zone = ZoneId.systemDefault()
+    val fmt = DateTimeFormatter.ofPattern("yyyy/MM/dd (E)")
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 16.dp)) {
+        Button(onClick = { onChange(date.minusDays(1)) }) { Text("前日") }
+
+        Text(
+            text = date.format(fmt),
+            modifier = Modifier
+                .weight(1f)
+                .clickable { open = true }
+                .padding(vertical = 12.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Button(onClick = { onChange(date.plusDays(1)) }) { Text("翌日") }
+    }
+
+    if (open) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { millis ->
+                        val picked = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+                        onChange(picked)
+                    }
+                    open = false
+                }) { Text("決定") }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text("キャンセル") } }
+        ) {
+            DatePicker(state = state)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimeRowWithPicker(
+    time: LocalTime,
+    onChange: (LocalTime) -> Unit,
+    is24Hour: Boolean = true
+) {
+    var open by remember { mutableStateOf(false) }
+    val fmt = DateTimeFormatter.ofPattern(if (is24Hour) "HH:mm" else "hh:mm a")
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 16.dp)) {
+        Button(onClick = { onChange(time.minusMinutes(5)) }) { Text("-5分") }
+
+        Text(
+            text = time.format(fmt),
+            modifier = Modifier
+                .weight(1f)
+                .clickable { open = true }
+                .padding(vertical = 12.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Button(onClick = { onChange(time.plusMinutes(5)) }) { Text("+5分") }
+    }
+
+    if (open) {
+        val tpState = rememberTimePickerState(
+            initialHour = time.hour,
+            initialMinute = time.minute,
+            is24Hour = is24Hour
+        )
+        AlertDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    onChange(LocalTime.of(tpState.hour, tpState.minute))
+                    open = false
+                }) { Text("決定") }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text("キャンセル") } },
+            text = { TimePicker(state = tpState) }
         )
     }
 }
