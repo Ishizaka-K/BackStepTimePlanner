@@ -1,2 +1,2 @@
 # BackStepTimePlanner
-逆算おでかけ
+逆算おでかけアプリ
