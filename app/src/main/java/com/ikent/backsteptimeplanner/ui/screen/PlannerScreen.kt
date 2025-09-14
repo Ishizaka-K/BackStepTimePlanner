@@ -35,7 +35,7 @@ fun PlannerScreen() {
         OutlinedTextField(
             value = state.destination,
             onValueChange = { state = state.copy(destination = it) },
-            label = { Text("目的地（例：天神駅）") },
+            label = { Text("目的地") },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
         )
 
